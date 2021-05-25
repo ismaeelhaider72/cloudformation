@@ -1,0 +1,391 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+         default: "VPC CIDR"
+        Parameters:
+          - VpcCIDR
+      -    
+        Label:
+          default: "Subnet CIDR"
+        Parameters:
+          - PublicSubnet1CIDR
+          - PrivateSubnet1CIDR
+          - PublicSubnet2CIDR
+      -     
+        Label:
+          default: "SSH CIDR"
+        Parameters:
+          - SSHLocation
+
+
+
+
+
+Parameters:
+ 
+  dbname: 
+    Type: String
+    Default: wordpress
+  dbuserpassword:
+    Type: String
+    Default: qniwHfNH;1Tl12
+    NoEcho: true
+  dbusername:
+    Type: String
+    Default: remotewpuser2
+
+
+  InstanceType:
+    Type: String
+    Default: t2.micro
+
+
+  VpcCIDR:
+    Default: 10.0.0.0/16
+    Description: ip range (CIDR notation) for this VPC
+    Type: String
+
+  PublicSubnet1CIDR:
+    Default: 10.0.1.0/24
+    Description: ip range (CIDR notation) for this VPC
+    Type: String
+
+  PublicSubnet2CIDR:
+    Default: 10.0.3.0/24
+    Description: ip range (CIDR notation) for this VPC
+    Type: String
+
+  PrivateSubnet1CIDR:
+    Default: 10.0.2.0/24
+    Description: ip range (CIDR notation) for this VPC
+    Type: String
+
+
+
+Resources:
+ VPC:
+   Type: AWS::EC2::VPC
+   Properties:
+    CidrBlock: !Ref VpcCIDR             # The intrinsic function Ref returns the value of the specified parameter or resource
+                                        # When you specify a resource's logical name, it returns a value that you can typically use to refer to that resource
+    
+    EnableDnsHostnames: true          # Indicates whether the instances launched in the VPC get DNS hostnames
+    EnableDnsSupport: true            # Indicates whether the DNS resolution is supported for the VPC. 
+    InstanceTenancy: default         # An instance launched into the VPC runs on shared hardware by default
+    Tags: 
+      - Key: Name
+        Value: VPC Test
+
+
+ InternetGateway:
+    Type: AWS::EC2::InternetGateway      # Allocates an internet gateway for use with a VPC. After creating the Internet gateway, you then attach it to a VPC.
+    Properties: 
+      Tags: 
+        - Key: Name
+          Value: Test IGW
+
+
+
+
+ InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment   # Attaches an internet gateway, or a virtual private gateway to a VPC, enabling connectivity between the internet and the VPC.
+    Properties: 
+      InternetGatewayId: !Ref InternetGateway   # The ID of the internet gateway.
+      VpcId: !Ref VPC                     # The ID of the VPC.  
+
+
+
+ PublicSubnet1:
+  Type: AWS::EC2::Subnet
+  Properties: 
+    AvailabilityZone: !Select [ 2, !GetAZs '' ]    # GetAZs function returns all Availability Zones for a region.
+    CidrBlock: !Ref PublicSubnet2CIDR
+    MapPublicIpOnLaunch: true          # Indicates whether instances launched in this subnet receive a public IPv4 address
+    Tags: 
+      - Key: Name
+        Value: Public subnet 1
+    VpcId: !Ref VPC
+
+
+
+ PublicSubnet2:
+  Type: AWS::EC2::Subnet
+  Properties: 
+    AvailabilityZone: !Select [ 0, !GetAZs '' ]
+    CidrBlock: !Ref PublicSubnet1CIDR
+    MapPublicIpOnLaunch: true
+    Tags: 
+      - Key: Name
+        Value: Public subnet 2
+    VpcId: !Ref VPC
+
+
+
+ PublicRouteTable:
+  Type: AWS::EC2::RouteTable
+  Properties: 
+    Tags: 
+      - Key: Name
+        Value: Public route table
+    VpcId: !Ref VPC
+
+ publicRoute:
+  Type: AWS::EC2::Route
+  Properties: 
+    DestinationCidrBlock: 0.0.0.0/0
+    GatewayId: !Ref InternetGateway
+    RouteTableId: !Ref PublicRouteTable
+
+ publicsubnet1RouteTableAssociation:
+  Type: AWS::EC2::SubnetRouteTableAssociation
+  Properties: 
+    RouteTableId: !Ref PublicRouteTable
+    SubnetId: !Ref PublicSubnet1
+
+ publicsubnet1RouteTableAssociation2:
+  Type: AWS::EC2::SubnetRouteTableAssociation
+  Properties: 
+    RouteTableId: !Ref PublicRouteTable
+    SubnetId: !Ref PublicSubnet2
+
+
+            
+         
+ privateSubnet1:
+  Type: AWS::EC2::Subnet
+  Properties: 
+    AvailabilityZone: !Select [ 1, !GetAZs '' ]
+    CidrBlock: !Ref PrivateSubnet1CIDR
+    MapPublicIpOnLaunch: false
+    Tags: 
+      - Key: Name
+        Value: Private subnet 1
+    VpcId: !Ref VPC
+
+ ALBSecurityGroup:
+  Type: AWS::EC2::SecurityGroup
+  Properties:
+    GroupDescription: Enable HTTP and HTTPS     
+    SecurityGroupIngress:             # The inbound rules associated with the security group. 
+      - IpProtocol: tcp             
+        FromPort: 80                 # The start of port range for the TCP and UDP protocols, or an ICMP/ICMPv6 type number. A value of -1 indicates all ICMP/ICMPv6 types. If you specify all ICMP/ICMPv6 types, you must specify all codes.
+        ToPort: 80                  # The end of port range for the TCP and UDP protocols, or an ICMP/ICMPv6 code. A value of -1 indicates all ICMP/ICMPv6 codes for the specified ICMP type. If you specify all ICMP/ICMPv6 types, you must specify all codes.
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 0.0.0.0/0        
+    Tags:
+      - Key: Name
+        Value: ALB Security Group
+    VpcId: !Ref VPC
+
+
+
+
+ DataBaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Open database for access
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+
+      Tags:
+        - Key: Name
+          Value: DataBase Security Group
+      VpcId: !Ref VPC
+
+ 
+ 
+ NatGateway1EIP:
+  Type: AWS::EC2::EIP
+  Properties:
+    Domain: VPC               # Indicates whether the Elastic IP address is for use with instances in a VPC or instance in EC2-Classic.
+    Tags:
+      - Key: Name
+        Value: EIP1
+
+
+
+ NatGateway1:                      # Specifies a network address translation (NAT) gateway in the specified public subnet. 
+                                    #Use a NAT gateway to allow instances in a private subnet to connect to the Internet or to other AWS services,
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:  !GetAtt NatGateway1EIP.AllocationId  # The ID that AWS assigns to represent the allocation of the address for use with Amazon VPC.
+                                                          #  This is returned only for VPC elastic IP addresses. For example, eipalloc-5723d13e 
+      SubnetId: !Ref PublicSubnet2
+      Tags:
+        - Key: Name
+          Value: Nat Gateway Public Subnet 2
+
+
+ PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+        - Key: Name
+          Value: Private Route Table 1
+      VpcId: !Ref VPC
+
+ PrivateRoute1:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+      RouteTableId: !Ref PrivateRouteTable1
+
+ PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      SubnetId: !Ref privateSubnet1
+
+
+
+
+        
+
+ dbserverInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      DisableApiTermination: false
+      ImageId:  ami-0d5eff06f840b45e9
+      InstanceType: !Ref InstanceType
+      Monitoring: false
+      SubnetId: !Ref privateSubnet1
+      SecurityGroupIds: 
+       - !Ref DataBaseSecurityGroup
+      
+       
+      UserData: 
+        Fn::Base64: 
+          !Sub |
+          #!/bin/bash 
+          sudo su
+          sudo wget https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm
+          sudo yum localinstall mysql57-community-release-el7-11.noarch.rpm -y
+          yum install -y mysql-community-server
+          systemctl enable mysqld
+          systemctl start mysqld
+          mysql -u root "-p$(grep -oP '(?<=root@localhost\: )\S+' /var/log/mysqld.log)" -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '${dbuserpassword}'" --connect-expired-password
+          mysql -u root "-p${dbuserpassword}" -e "CREATE DATABASE ${dbname}"
+          mysql -u root "-p${dbuserpassword}" -e "CREATE USER '${dbusername}'@'%' IDENTIFIED BY '${dbuserpassword}'"
+          mysql -u root "-p${dbuserpassword}" -e "GRANT ALL PRIVILEGES ON *.* TO '${dbusername}'@'%'"
+          mysql -u root "-p${dbuserpassword}" -e "FLUSH PRIVILEGES"
+    DependsOn:  PrivateSubnetRouteTableAssociation  
+
+ ismaeelELB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Scheme: internet-facing   # The nodes of an Internet-facing load balancer have public IP addresses. 
+                                # Internet-facing load balancers can route requests from clients over the internet.
+      Subnets: 
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+
+      SecurityGroups: 
+        - !Ref ALBSecurityGroup
+      Type: application
+
+ ismaeellistner:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward     # You can use forward actions to route requests to one or more target groups
+          TargetGroupArn: !Ref ismaeelTargetGroup
+      LoadBalancerArn: !Ref ismaeelELB
+      Port: 80
+      Protocol: HTTP        #Listeners support the following protocols and ports: Protocols: HTTP, HTTPS  and prot  1-65535
+
+
+
+
+
+
+ ismaeelTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 80   # The approximate amount of time, in seconds, between health checks of an individual target. 
+      HealthCheckPath: /  # The destination for health checks on the targets.
+      HealthCheckPort: 80  # The port the load balancer uses when performing health checks on targets.
+      HealthCheckProtocol: HTTP  #The protocol the load balancer uses when performing health checks on targets. For Application Load Balancers, the default is HTTP.
+      HealthCheckTimeoutSeconds: 50  
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      UnhealthyThresholdCount: 2   # The number of consecutive health check failures required before considering a target unhealthy.
+      VpcId:  !Ref VPC
+
+
+ ismaeelLaunchConfiguration2:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+        AssociatePublicIpAddress: true  # Controls whether instances in this group are launched with detailed (true) or basic (false) monitoring. The default value is true (enabled).
+        ImageId: ami-0d5eff06f840b45e9
+        InstanceType: t2.micro
+        InstanceMonitoring: false
+        LaunchConfigurationName: ismaeelLaunchConfiguration2
+        SecurityGroups:
+          - !Ref ALBSecurityGroup
+        UserData:
+            Fn::Base64 : 
+              Fn::Sub:
+                - |
+                  #!/bin/bash
+                  sudo su
+                  yum install httpd php-mysql -y
+                  amazon-linux-extras install -y php7.3
+                  cd /var/www/html
+                  wget https://wordpress.org/latest.tar.gz
+                  tar -xzf latest.tar.gz
+                  cp -r wordpress/* /var/www/html/
+                  rm -rf wordpress
+                  rm -rf latest.tar.gz
+                  chmod -R 755 wp-content
+                  chown -R apache:apache wp-content
+                  service httpd start
+                  chkconfig httpd on
+                  cd /var/www/html
+                  cp wp-config-sample.php wp-config.php
+                  sed -i "s/database_name_here/wordpress/g" wp-config.php
+                  sed -i "s/username_here/${dbusername}/g" wp-config.php
+                  sed -i "s/password_here/${dbuserpassword}/g" wp-config.php
+                  sed -i "s/localhost/${Private1}/g" wp-config.php
+                - Private1: !GetAtt dbserverInstance.PrivateIp
+
+
+    DependsOn:  dbserverInstance          
+ ismaeelASG2:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: ismaeelASG2
+      MinSize: "1"
+      MaxSize: "2"
+      DesiredCapacity: "2"
+      HealthCheckGracePeriod: 100   #The amount of time, in seconds, that Amazon EC2 Auto Scaling waits before checking the health status of an EC2 instance that has come into service.
+      TargetGroupARNs: 
+        - !Ref ismaeelTargetGroup      
+      LaunchConfigurationName: !Ref ismaeelLaunchConfiguration2 
+      VPCZoneIdentifier:
+        - !Ref PublicSubnet2
+        - !Ref PublicSubnet1
+      Tags:
+        - Key: Name
+          Value: ismaeelasg2
+          PropagateAtLaunch: true   # Set to true if you want CloudFormation to copy the tag to EC2 instances that are launched as part of the Auto Scaling group.
+
