@@ -30,8 +30,6 @@ Parameters:
     Default: db.t2.micro
 
 
-  # Publicip2:
-  #   Type: String    
 
 Resources:
   MyDBinstacee:
@@ -47,55 +45,6 @@ Resources:
         - !Ref DBSecurityGrou
       DBSubnetGroupName:  !Ref DBSubnetG
  
-
-  # DBSecurityGrou:
-  #   Type: AWS::RDS::DBSecurityGroup
-  #   Properties:
-  #     GroupDescription: Database group 
-  #     DBSecurityGroupIngress:
-  #       EC2SecurityGroupName:
-  #         - !Ref webserversg 
-  
-
-  # DBSecurityGrou:
-  #   Type: AWS::RDS::DBSecurityGroup
-  #   Properties:
-  #     GroupDescription: Database group 
-  #     DBSecurityGroupIngress:
-  #         SourceSecurityGroupId: !Ref webserversg
-         
-        
- 
-  # DBSecurityGrou:
-  #   Type: AWS::RDS::DBSecurityGroup
-  #   Properties:
-  #     GroupDescription: Database group 
-  #     DBSecurityGroupIngress: 
-  #       - CIDRIP: 0.0.0.0/0
-  #     EC2VpcId: !Ref webserversg
-
-
-  # DBSecurityGrou:
-  #   Type: AWS::RDS::DBSecurityGroup
-  #   Properties:
-  #     GroupDescription: Database group 
-  #     DBSecurityGroupIngress: 
-  #       - CIDRIP:  !Ref Publicip1
-
-  #     EC2VpcId: !Ref webserversg
-
-
-  # DBSecurityGrou: 
-  #   Type: AWS::RDS::DBSecurityGroup
-  #   Properties: 
-  #     EC2VpcId: 
-  #       Ref: "vpcID"
-  #     DBSecurityGroupIngress: 
-  #       - 
-  #         EC2SecurityGroupName: 
-  #           Ref: "webSecGroup"
-  #     GroupDescription: "Frontend Access" 
-
 
   DBSecurityGrou: 
     Type: AWS::RDS::DBSecurityGroup
