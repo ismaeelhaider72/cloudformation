@@ -1,0 +1,124 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  
+  DBprivateSubnet1:
+    Type: String
+  DBprivateSubnet2:
+    Type: String    
+
+  vpcID:
+    Type: String
+
+  webserverSGID:
+    Type: String
+  dbname: 
+    Type: String
+    Default: wordpress
+  dbuserpassword:
+    Type: String
+    Default: qniwHfNH;1Tl12
+  dbusername:
+    Type: String
+    Default: remotewpuser2
+
+  dbusername:
+    Type: String
+    Default: remotewpuser2
+  DBInstance:
+    Type: String
+    Default: db.t2.micro
+
+
+  # Publicip2:
+  #   Type: String    
+
+Resources:
+  MyDBinstacee:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName: !Ref dbname
+      MasterUsername: !Ref dbusername
+      MasterUserPassword: !Ref dbuserpassword
+      Engine: MySQL
+      DBInstanceClass: !Ref DBInstance
+      AllocatedStorage: '5'
+      DBSecurityGroups: 
+        - !Ref DBSecurityGrou
+      DBSubnetGroupName:  !Ref DBSubnetG
+ 
+
+  # DBSecurityGrou:
+  #   Type: AWS::RDS::DBSecurityGroup
+  #   Properties:
+  #     GroupDescription: Database group 
+  #     DBSecurityGroupIngress:
+  #       EC2SecurityGroupName:
+  #         - !Ref webserversg 
+  
+
+  # DBSecurityGrou:
+  #   Type: AWS::RDS::DBSecurityGroup
+  #   Properties:
+  #     GroupDescription: Database group 
+  #     DBSecurityGroupIngress:
+  #         SourceSecurityGroupId: !Ref webserversg
+         
+        
+ 
+  # DBSecurityGrou:
+  #   Type: AWS::RDS::DBSecurityGroup
+  #   Properties:
+  #     GroupDescription: Database group 
+  #     DBSecurityGroupIngress: 
+  #       - CIDRIP: 0.0.0.0/0
+  #     EC2VpcId: !Ref webserversg
+
+
+  # DBSecurityGrou:
+  #   Type: AWS::RDS::DBSecurityGroup
+  #   Properties:
+  #     GroupDescription: Database group 
+  #     DBSecurityGroupIngress: 
+  #       - CIDRIP:  !Ref Publicip1
+
+  #     EC2VpcId: !Ref webserversg
+
+
+  # DBSecurityGrou: 
+  #   Type: AWS::RDS::DBSecurityGroup
+  #   Properties: 
+  #     EC2VpcId: 
+  #       Ref: "vpcID"
+  #     DBSecurityGroupIngress: 
+  #       - 
+  #         EC2SecurityGroupName: 
+  #           Ref: "webSecGroup"
+  #     GroupDescription: "Frontend Access" 
+
+
+  DBSecurityGrou: 
+    Type: AWS::RDS::DBSecurityGroup
+    Properties:
+      EC2VpcId: !Ref vpcID 
+      GroupDescription: "Ingress for Amazon EC2 security group"
+      DBSecurityGroupIngress: 
+        - 
+          EC2SecurityGroupId: !Ref webserverSGID
+
+
+
+
+  DBSubnetG:
+    Type: 'AWS::RDS::DBSubnetGroup'
+    Properties: 
+      DBSubnetGroupDescription: mysubnetgroup
+      SubnetIds: 
+        - !Ref DBprivateSubnet1
+        - !Ref DBprivateSubnet2
+
+Outputs:
+  EndpointAddress:
+    Description: Db instance ip
+    Value: !GetAtt MyDBinstacee.Endpoint.Address
+
